@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class TargetController : MonoBehaviour
 {
-    private Rigidbody rb;
     private MeshRenderer meshRenderer;
     private Vector3 direction;
     private GameObject[] allCharacters;
@@ -18,18 +17,17 @@ public class TargetController : MonoBehaviour
 
     [SerializeField] private GameObject oldTarget;
     [SerializeField] private GameObject target;
-    [SerializeField] private float stepDistance = 0.5f;
     [SerializeField] private float maxSpeed = 1;
     [SerializeField] private float taggerMaxSpeed = 1;
     [SerializeField] private float speed;
     [SerializeField] private float timeToTarget = 0.25f;
-    [SerializeField] private float slowdownRadius = 3f;
     [SerializeField] private float arriveRadius = 0.1f;
     [SerializeField] private bool isTagged;
     [SerializeField] private bool isTagger;
     [SerializeField] private bool isTargeted;
-    [SerializeField] private float rotateStep = 5f;
     [SerializeField] private float tagRadius = .5f;
+    [SerializeField] private float targetSwitchTimer = 1.0f;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -68,33 +66,29 @@ public class TargetController : MonoBehaviour
         
         }
 
+        StartCoroutine(SwitchTarget());
 
     }
 
     // Update is called once per frame
     void Update()
     {
-        //float horizontal = Input.GetAxisRaw("Horizontal");
-        //float vertical = Input.GetAxisRaw("Vertical");
-    
+
         Vector3 movement = Vector3.zero;
 
         if (isTagger)
         {
-            //speed = taggerMaxSpeed;
 
-            oldTarget = target;
-            target = GetClosest();
+            //oldTarget = target;
+            //target = GetClosest();
 
-            if (oldTarget != target) 
-            {
-                oldTarget.GetComponent<TargetController>().SetTargeted(false);
-                target.GetComponent<TargetController>().SetTargeted(true);
-            }
+            //if (oldTarget != target) 
+            //{
+            //    oldTarget.GetComponent<TargetController>().SetTargeted(false);
+            //    target.GetComponent<TargetController>().SetTargeted(true);
+            //}
 
-            //movement = KinematicArrive();
             movement = KinematicPursue();
-            //movement = KinematicWander();
         }
         else if (isTagged) 
         {
@@ -103,10 +97,7 @@ public class TargetController : MonoBehaviour
         }
         else if (isTargeted)
         {
-            
-
             movement = KinematicFlee();
-            //Debug.Log(GetClosest().name);
         }
 
          Vector3 newPosition = movement + transform.position;
@@ -141,31 +132,28 @@ public class TargetController : MonoBehaviour
 
     public Vector3 KinematicArrive() 
     {
-        //direction = target.transform.position - transform.position;
         direction = GetDirection(target);
-        speed = maxSpeed;
+        float distance = GetDistance(target);
+        speed = taggerMaxSpeed;
 
-        if (direction.magnitude < arriveRadius)
+        if (distance < arriveRadius)
         {
             speed = 0;
         }
-        else //if (direction.magnitude < slowdownRadius) 
+        else
         {
-            speed = Mathf.Min(maxSpeed, (GetDistance(target)) / timeToTarget);
+            speed = Mathf.Min(taggerMaxSpeed, distance / timeToTarget);
         }
-
 
         Vector3 movement = direction * speed * timeToTarget * Time.deltaTime;
         
-
         return movement;
     }
 
     public Vector3 KinematicFlee()
     {
-        //direction = target.transform.position - transform.position;
         direction = GetDirection(target);
-        speed = maxSpeed/5;
+        speed = maxSpeed;
 
         Vector3 movement = -direction * speed * Time.deltaTime;
 
@@ -198,13 +186,34 @@ public class TargetController : MonoBehaviour
 
     public Vector3 KinematicPursue()
     {
-        //direction = target.transform.position - transform.position;
+        speed = taggerMaxSpeed;
 
         float distance = GetDistance(target);
         float timeToTarget = distance / speed;
 
-        Vector3 targetPosition = target.transform.position + target.GetComponent<TargetController>().GetVelocity() * timeToTarget;
-        
+        Vector3 velocity = target.GetComponent<TargetController>().GetVelocity() / Time.deltaTime;
+
+        Vector3 targetPosition = target.transform.position + velocity * timeToTarget;
+        Vector3 inputPosition = targetPosition;
+
+        if (targetPosition.x > arenaLength)
+        {
+            inputPosition = new Vector3(-(transform.position.x - (-arenaLength + (inputPosition.x - arenaLength))), targetPosition.y, targetPosition.z);
+        }
+        else if (targetPosition.x < -arenaLength)
+        {
+            inputPosition = new Vector3(((transform.position.x + targetPosition.x) + arenaLength * 2) - transform.position.x, targetPosition.y, targetPosition.z);
+        }
+        if (targetPosition.z > arenaLength)
+        {
+            inputPosition = new Vector3(targetPosition.x, targetPosition.y, -(transform.position.z - (-arenaLength + (inputPosition.z - arenaLength))));
+        }
+        else if (targetPosition.z < -arenaLength)
+        {
+            inputPosition = new Vector3(targetPosition.x, targetPosition.y, ((transform.position.z + targetPosition.z) + arenaLength * 2) - transform.position.z);
+        }
+
+
         return KinematicSeek(targetPosition);
     }
 
@@ -226,7 +235,6 @@ public class TargetController : MonoBehaviour
         distance = Mathf.Min(distance1.magnitude, distance2.magnitude, distance3.magnitude, distance4.magnitude);
 
         return distance;
-
     }
 
     private Vector3 GetDirection(GameObject target)
@@ -273,7 +281,6 @@ public class TargetController : MonoBehaviour
         }
 
         return directions[0];
-
     }
 
     public GameObject GetClosest() 
@@ -340,11 +347,25 @@ public class TargetController : MonoBehaviour
     public void SetTagger(bool value)
     {
        isTagger = value;
+
+        if (true)
+        {
+            GetComponent<MeshRenderer>().material = taggerMaterial;
+        }
     }
     
     public void SetTargeted(bool value)
     {
        isTargeted = value;
+
+        if (value) 
+        {
+            target = GetTagger();
+        }
+        else
+        {
+            target = null;
+        }
     }
 
     public GameObject GetTagger() 
@@ -368,5 +389,25 @@ public class TargetController : MonoBehaviour
     public Vector3 GetVelocity() 
     {
         return KinematicFlee();
+    }
+
+    IEnumerator SwitchTarget()
+    {
+        while (true)
+        {
+            if (isTagger)
+            {
+                oldTarget = target;
+                target = GetClosest();
+
+                if (oldTarget != target)
+                {
+                    oldTarget.GetComponent<TargetController>().SetTargeted(false);
+                    target.GetComponent<TargetController>().SetTargeted(true);
+                }
+            }
+            yield return new WaitForSeconds(targetSwitchTimer);
+        }
+        
     }
 }

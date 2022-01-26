@@ -117,18 +117,16 @@ MonoBehaviour:
   arenaLength: 4.5
   oldTarget: {fileID: 0}
   target: {fileID: 612094306403964872, guid: ca505e0ec5c051744a39cf90b2fd6f16, type: 3}
-  stepDistance: 0.5
-  maxSpeed: 5
-  taggerMaxSpeed: 10
+  maxSpeed: 0.25
+  taggerMaxSpeed: 0.5
   speed: 0.5
   timeToTarget: 0.25
-  slowdownRadius: 4
   arriveRadius: 0.1
   isTagged: 0
   isTagger: 0
   isTargeted: 0
-  rotateStep: 5
   tagRadius: 1
+  targetSwitchTimer: 5
 --- !u!54 &5649010304365052561
 Rigidbody:
   m_ObjectHideFlags: 0
