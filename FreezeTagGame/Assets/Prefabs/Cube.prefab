@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 8133144532218490859}
   - component: {fileID: 4387109333837272131}
   - component: {fileID: 7704051951243821418}
+  - component: {fileID: -1926658299459888282}
   - component: {fileID: 5649010304365052561}
   m_Layer: 0
   m_Name: Cube
@@ -114,19 +115,33 @@ MonoBehaviour:
   normalMaterial: {fileID: 2100000, guid: f88f34165e643bf49afcc8a32451bf10, type: 2}
   taggerMaterial: {fileID: 2100000, guid: bb98a9ca3373d464bbfbfe1ce63802e5, type: 2}
   taggedMaterial: {fileID: 2100000, guid: c9b22cbb6ab280e40ba7e56d3781d1ef, type: 2}
-  arenaLength: 4.5
-  oldTarget: {fileID: 0}
   target: {fileID: 612094306403964872, guid: ca505e0ec5c051744a39cf90b2fd6f16, type: 3}
-  maxSpeed: 0.25
-  taggerMaxSpeed: 0.5
   speed: 0.5
-  timeToTarget: 0.25
-  arriveRadius: 0.1
+  movement: {x: 0, y: 0, z: 0}
   isTagged: 0
   isTagger: 0
   isTargeted: 0
-  tagRadius: 1
-  targetSwitchTimer: 5
+--- !u!114 &-1926658299459888282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8845923475924269646}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c80a4ab60ac6693419a5fbfde6a8a66a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  normalMaterial: {fileID: 2100000, guid: f88f34165e643bf49afcc8a32451bf10, type: 2}
+  taggerMaterial: {fileID: 2100000, guid: c9b22cbb6ab280e40ba7e56d3781d1ef, type: 2}
+  taggedMaterial: {fileID: 2100000, guid: bb98a9ca3373d464bbfbfe1ce63802e5, type: 2}
+  target: {fileID: 612094306403964872, guid: ca505e0ec5c051744a39cf90b2fd6f16, type: 3}
+  speed: 0.5
+  movement: {x: 0, y: 0, z: 0}
+  isTagged: 0
+  isTagger: 0
+  isTargeted: 0
 --- !u!54 &5649010304365052561
 Rigidbody:
   m_ObjectHideFlags: 0

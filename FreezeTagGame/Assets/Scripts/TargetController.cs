@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(200)]
 public class TargetController : MonoBehaviour
 {
     private MeshRenderer meshRenderer;
@@ -13,26 +14,41 @@ public class TargetController : MonoBehaviour
     [SerializeField]  public Material taggerMaterial;
     [SerializeField]  public Material taggedMaterial;
 
-    [SerializeField] private float arenaLength = 4.5f;
-
-    [SerializeField] private GameObject oldTarget;
     [SerializeField] private GameObject target;
-    [SerializeField] private float maxSpeed = 1;
-    [SerializeField] private float taggerMaxSpeed = 1;
+
     [SerializeField] private float speed;
-    [SerializeField] private float timeToTarget = 0.25f;
-    [SerializeField] private float arriveRadius = 0.1f;
+    [SerializeField] private Vector3 movement;
+
     [SerializeField] private bool isTagged;
     [SerializeField] private bool isTagger;
     [SerializeField] private bool isTargeted;
-    [SerializeField] private float tagRadius = .5f;
-    [SerializeField] private float targetSwitchTimer = 1.0f;
+
+
+    private static float arenaLength = 4.5f;
+    public static GameObject tagger;
+
+    //Character Variables
+    private static float maxSpeed;
+    private static float taggerMaxSpeed;
+    private static float timeToTarget;
+    private static float arriveRadius;
+    private static float tagRadius;
+    private static float targetSwitchTimer;
 
     // Start is called before the first frame update
     void Start()
     {
-        allCharacters = GameObject.FindGameObjectsWithTag("Character");
+        maxSpeed = GameController.maxSpeed;
+        taggerMaxSpeed = GameController.taggerMaxSpeed;
+        timeToTarget = GameController.timeToTarget;
+        arriveRadius = GameController.arriveRadius;
+        tagRadius = GameController.tagRadius;
+        targetSwitchTimer = GameController.targetSwitchTimer;
+        allCharacters = allCharacters = GameObject.FindGameObjectsWithTag("Character");
+
         characters = new GameObject[allCharacters.Length-1];
+
+        GetComponent<TaggerController>().enabled = false;
 
         int index = 0;
 
@@ -43,91 +59,75 @@ public class TargetController : MonoBehaviour
                 characters[index] = character;
 
                 index++;
-
             }
         }
         
         meshRenderer = GetComponent<MeshRenderer>();
 
-        if (!isTagger)
+        if (isTagger)
         {
-            foreach (var character in characters)
-            {
-                if (character.GetComponent<TargetController>().GetIsTagger())
-                {
-                    target = character;
-                    break;
-                }
-            }
+            target = GetClosest();
         }
         else 
         {
-            GetComponent<MeshRenderer>().material = taggerMaterial;
-        
+            target = GameController.GetTagger();
         }
-
-        StartCoroutine(SwitchTarget());
 
     }
 
     // Update is called once per frame
     void Update()
     {
-
-        Vector3 movement = Vector3.zero;
-
         if (isTagger)
         {
-
-            //oldTarget = target;
-            //target = GetClosest();
-
-            //if (oldTarget != target) 
-            //{
-            //    oldTarget.GetComponent<TargetController>().SetTargeted(false);
-            //    target.GetComponent<TargetController>().SetTargeted(true);
-            //}
-
             movement = KinematicPursue();
         }
-        else if (isTagged) 
+        else if (isTagged)
         {
             speed = 0;
-            meshRenderer.material = taggedMaterial;
+
+            SetMaterial("tagged");
         }
         else if (isTargeted)
         {
             movement = KinematicFlee();
         }
 
-         Vector3 newPosition = movement + transform.position;
-
-        if (newPosition.x > arenaLength)
-        {
-            movement = new Vector3(-(transform.position.x - (-arenaLength + (newPosition.x - arenaLength))), movement.y, movement.z);
-        }
-        else if (newPosition.x < -arenaLength)
-        {
-            movement = new Vector3(((transform.position.x + movement.x) + arenaLength * 2) - transform.position.x, movement.y, movement.z);
-        }
-        if (newPosition.z > arenaLength)
-        {
-            movement = new Vector3(movement.x, movement.y, -(transform.position.z - (-arenaLength + (newPosition.z - arenaLength))));
-        }
-        else if (newPosition.z < -arenaLength)
-        {
-            movement = new Vector3(movement.x, movement.y, ((transform.position.z + movement.z) + arenaLength * 2) - transform.position.z);
-        }
+        movement = NormalizeMovement(movement);
 
         transform.Translate(movement);
 
-        if (this.isTagger && !target.GetComponent<TargetController>().GetIsTagged()) 
+        if (this.isTagger && !target.GetComponent<TargetController>().GetIsTagged())
         {
-            if(GetDistance(target) < tagRadius) 
+            if (GetDistance(target) < tagRadius)
             {
                 target.GetComponent<TargetController>().SetTagged(true);
             }
         }
+    }
+
+    private Vector3 NormalizeMovement(Vector3 input)
+    {
+        Vector3 newPosition = input + transform.position;
+
+        if (newPosition.x > arenaLength)
+        {
+            input = new Vector3(-(transform.position.x - (-arenaLength + (newPosition.x - arenaLength))), input.y, input.z);
+        }
+        else if (newPosition.x < -arenaLength)
+        {
+            input = new Vector3(((transform.position.x + input.x) + arenaLength * 2) - transform.position.x, input.y, input.z);
+        }
+        if (newPosition.z > arenaLength)
+        {
+            input = new Vector3(input.x, input.y, -(transform.position.z - (-arenaLength + (newPosition.z - arenaLength))));
+        }
+        else if (newPosition.z < -arenaLength)
+        {
+            input = new Vector3(input.x, input.y, ((transform.position.z + input.z) + arenaLength * 2) - transform.position.z);
+        }
+
+        return input;
     }
 
     public Vector3 KinematicArrive() 
@@ -136,14 +136,7 @@ public class TargetController : MonoBehaviour
         float distance = GetDistance(target);
         speed = taggerMaxSpeed;
 
-        if (distance < arriveRadius)
-        {
-            speed = 0;
-        }
-        else
-        {
-            speed = Mathf.Min(taggerMaxSpeed, distance / timeToTarget);
-        }
+        speed = Mathf.Min(taggerMaxSpeed, distance / timeToTarget);
 
         Vector3 movement = direction * speed * timeToTarget * Time.deltaTime;
         
@@ -155,7 +148,7 @@ public class TargetController : MonoBehaviour
         direction = GetDirection(target);
         speed = maxSpeed;
 
-        Vector3 movement = -direction * speed * Time.deltaTime;
+        Vector3 movement = -(direction) * speed * Time.deltaTime;
 
         return movement;
     }
@@ -194,25 +187,8 @@ public class TargetController : MonoBehaviour
         Vector3 velocity = target.GetComponent<TargetController>().GetVelocity() / Time.deltaTime;
 
         Vector3 targetPosition = target.transform.position + velocity * timeToTarget;
-        Vector3 inputPosition = targetPosition;
-
-        if (targetPosition.x > arenaLength)
-        {
-            inputPosition = new Vector3(-(transform.position.x - (-arenaLength + (inputPosition.x - arenaLength))), targetPosition.y, targetPosition.z);
-        }
-        else if (targetPosition.x < -arenaLength)
-        {
-            inputPosition = new Vector3(((transform.position.x + targetPosition.x) + arenaLength * 2) - transform.position.x, targetPosition.y, targetPosition.z);
-        }
-        if (targetPosition.z > arenaLength)
-        {
-            inputPosition = new Vector3(targetPosition.x, targetPosition.y, -(transform.position.z - (-arenaLength + (inputPosition.z - arenaLength))));
-        }
-        else if (targetPosition.z < -arenaLength)
-        {
-            inputPosition = new Vector3(targetPosition.x, targetPosition.y, ((transform.position.z + targetPosition.z) + arenaLength * 2) - transform.position.z);
-        }
-
+        
+        targetPosition = NormalizeMovement(targetPosition);
 
         return KinematicSeek(targetPosition);
     }
@@ -348,9 +324,11 @@ public class TargetController : MonoBehaviour
     {
        isTagger = value;
 
+        GetComponent<TaggerController>().enabled =value;
+
         if (true)
         {
-            GetComponent<MeshRenderer>().material = taggerMaterial;
+            SetMaterial("tagger");
         }
     }
     
@@ -360,25 +338,12 @@ public class TargetController : MonoBehaviour
 
         if (value) 
         {
-            target = GetTagger();
+            target = GameController.GetTagger();
         }
         else
         {
             target = null;
         }
-    }
-
-    public GameObject GetTagger() 
-    {
-        foreach (var character in allCharacters)
-        {
-            if (character.GetComponent<TargetController>().GetIsTagger()) 
-            {
-                return character;
-            }
-        }
-
-        return null;    
     }
 
     public float GetSpeed() 
@@ -391,23 +356,24 @@ public class TargetController : MonoBehaviour
         return KinematicFlee();
     }
 
-    IEnumerator SwitchTarget()
+    public GameObject GetTarget() 
     {
-        while (true)
-        {
-            if (isTagger)
-            {
-                oldTarget = target;
-                target = GetClosest();
-
-                if (oldTarget != target)
-                {
-                    oldTarget.GetComponent<TargetController>().SetTargeted(false);
-                    target.GetComponent<TargetController>().SetTargeted(true);
-                }
-            }
-            yield return new WaitForSeconds(targetSwitchTimer);
-        }
-        
+        return target;
     }
+    
+    public void SetTarget(GameObject targetObject) 
+    {
+        target = targetObject;
+    }
+
+    public void SetMaterial(string type) 
+    {
+        switch (type) 
+        {
+            case "tagger": meshRenderer.material = taggerMaterial; break;
+            case "tagged": meshRenderer.material = taggedMaterial; break;
+            default: meshRenderer.material = normalMaterial; break;
+        }
+    }
+
 }
