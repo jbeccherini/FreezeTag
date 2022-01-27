@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class TargetController : MonoBehaviour
 {
+    private static GameController gc;
+
     private MeshRenderer meshRenderer;
     private Vector3 direction;
     private GameObject[] allCharacters;
@@ -17,20 +19,33 @@ public class TargetController : MonoBehaviour
 
     [SerializeField] private GameObject oldTarget;
     [SerializeField] private GameObject target;
-    [SerializeField] private float maxSpeed = 1;
-    [SerializeField] private float taggerMaxSpeed = 1;
     [SerializeField] private float speed;
     [SerializeField] private float timeToTarget = 0.25f;
     [SerializeField] private float arriveRadius = 0.1f;
     [SerializeField] private bool isTagged;
     [SerializeField] private bool isTagger;
     [SerializeField] private bool isTargeted;
-    [SerializeField] private float tagRadius = .5f;
-    [SerializeField] private float targetSwitchTimer = 1.0f;
+
+    private float maxSpeed;
+    private float unfreezeMaxSpeed;
+    private float taggerMaxSpeed;
+    private float tagRadius;
+    private float changeTargetRadius;
 
     // Start is called before the first frame update
     void Start()
     {
+        if (gc == null) 
+        {
+            gc = new GameController();
+        }
+
+        maxSpeed = gc.maxSpeed;
+        taggerMaxSpeed = gc.taggerMaxSpeed;
+        tagRadius = gc.tagRadius;
+        changeTargetRadius = gc.changeTargetRadius;
+        unfreezeMaxSpeed = gc.unfreezeMaxSpeed;
+
         allCharacters = GameObject.FindGameObjectsWithTag("Character");
         characters = new GameObject[allCharacters.Length-1];
 
@@ -49,48 +64,38 @@ public class TargetController : MonoBehaviour
         
         meshRenderer = GetComponent<MeshRenderer>();
 
-        if (!isTagger)
+        if (isTagger) 
         {
-            foreach (var character in characters)
+            foreach (var item in allCharacters)
             {
-                if (character.GetComponent<TargetController>().GetIsTagger())
-                {
-                    target = character;
-                    break;
-                }
+                target = this.gameObject;
             }
         }
-        else 
-        {
-            GetComponent<MeshRenderer>().material = taggerMaterial;
-        
-        }
-
-        StartCoroutine(SwitchTarget());
-
     }
 
     // Update is called once per frame
     void Update()
     {
+        if (isTagger)
+        {
+            foreach (var character in allCharacters)
+            {
+                if (character.gameObject != this.gameObject) 
+                {
+                    character.GetComponent<TargetController>().SetTarget(this.gameObject);
+                }
+            }
+
+            SetTarget(GetClosest());
+        }
 
         Vector3 movement = Vector3.zero;
 
         if (isTagger)
         {
-
-            //oldTarget = target;
-            //target = GetClosest();
-
-            //if (oldTarget != target) 
-            //{
-            //    oldTarget.GetComponent<TargetController>().SetTargeted(false);
-            //    target.GetComponent<TargetController>().SetTargeted(true);
-            //}
-
             movement = KinematicPursue();
         }
-        else if (isTagged) 
+        else if (isTagged)
         {
             speed = 0;
             meshRenderer.material = taggedMaterial;
@@ -98,6 +103,15 @@ public class TargetController : MonoBehaviour
         else if (isTargeted)
         {
             movement = KinematicFlee();
+        }
+        else 
+        {
+            speed = unfreezeMaxSpeed;
+            target = GetClosestFrozen();
+            if (target != null) 
+            {
+                movement = KinematicSeek(target.transform.position);
+            }
         }
 
          Vector3 newPosition = movement + transform.position;
@@ -126,6 +140,23 @@ public class TargetController : MonoBehaviour
             if(GetDistance(target) < tagRadius) 
             {
                 target.GetComponent<TargetController>().SetTagged(true);
+                GameController.changeTarget = true;
+
+                SetTarget(GetClosest());
+            }
+        }
+
+        if (!this.isTagged && !isTagger) 
+        {
+            foreach (var character in characters)
+            {
+                if (character.GetComponent<TargetController>().isTagged) 
+                {
+                    if (GetDistance(character) < tagRadius) 
+                    {
+                        character.GetComponent<TargetController>().SetTagged(false);
+                    }
+                }
             }
         }
     }
@@ -191,9 +222,9 @@ public class TargetController : MonoBehaviour
         float distance = GetDistance(target);
         float timeToTarget = distance / speed;
 
-        Vector3 velocity = target.GetComponent<TargetController>().GetVelocity() / Time.deltaTime;
+        Vector3 velocity = target.GetComponent<TargetController>().GetVelocity();
 
-        Vector3 targetPosition = target.transform.position + velocity * timeToTarget;
+        Vector3 targetPosition = target.transform.position + velocity;
         Vector3 inputPosition = targetPosition;
 
         if (targetPosition.x > arenaLength)
@@ -212,7 +243,6 @@ public class TargetController : MonoBehaviour
         {
             inputPosition = new Vector3(targetPosition.x, targetPosition.y, ((transform.position.z + targetPosition.z) + arenaLength * 2) - transform.position.z);
         }
-
 
         return KinematicSeek(targetPosition);
     }
@@ -315,6 +345,38 @@ public class TargetController : MonoBehaviour
         return closest;
     }
 
+    public GameObject GetClosestFrozen()
+    {
+        GameObject closest = null;
+
+        float distance = -1;
+
+        foreach (var character in characters)
+        {
+            if (!character.GetComponent<TargetController>().GetIsTagged())
+            {
+                continue;
+            }
+            if (distance == -1)
+            {
+                closest = character;
+                distance = GetDistance(character);
+            }
+            if (GetDistance(character) < distance)
+            {
+                closest = character;
+                distance = GetDistance(character);
+            }
+        }
+
+        if (closest == null)
+        {
+            return null;
+        }
+
+        return closest;
+    }
+
     public bool GetIsTagged() 
     {
         return isTagged;
@@ -391,23 +453,51 @@ public class TargetController : MonoBehaviour
         return KinematicFlee();
     }
 
-    IEnumerator SwitchTarget()
+    public void SetTarget(GameObject obj) 
     {
-        while (true)
+        if (this.isTagger)
         {
-            if (isTagger)
-            {
-                oldTarget = target;
-                target = GetClosest();
-
-                if (oldTarget != target)
+            //if (GetDistance(target) < 3f) 
+            //{
+                if (GameController.changeTarget)
                 {
-                    oldTarget.GetComponent<TargetController>().SetTargeted(false);
-                    target.GetComponent<TargetController>().SetTargeted(true);
+                    GameController.changeTarget = false;
+
+                    target.GetComponent<TargetController>().isTargeted = false;
+                    target = obj;
+                    target.GetComponent<TargetController>().isTargeted = true;
+
+                    Debug.Log("Log is now "+ target.name);
                 }
-            }
-            yield return new WaitForSeconds(targetSwitchTimer);
+                else
+                {
+                    foreach (var character in characters)
+                    {
+                        if (character.GetComponent<TargetController>().isTagged)
+                        {
+                            continue;
+                        }
+
+                        if (GetDistance(character) < changeTargetRadius)
+                        {
+                            //GameController.changeTarget = true;
+                        }
+                    }
+                }
+            //}
         }
-        
+        else 
+        {
+            target = obj;
+        }
     }
+    
+    public GameObject GetTarget() 
+    {
+        return target;
+    }
+
+    
+
+
 }
