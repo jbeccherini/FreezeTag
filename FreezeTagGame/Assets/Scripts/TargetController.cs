@@ -35,7 +35,7 @@ public class TargetController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        if (gc == null) 
+       if (gc == null) 
         {
             gc = new GameController();
         }
@@ -64,18 +64,13 @@ public class TargetController : MonoBehaviour
         
         meshRenderer = GetComponent<MeshRenderer>();
 
-        if (isTagger) 
-        {
-            foreach (var item in allCharacters)
-            {
-                target = this.gameObject;
-            }
-        }
+        target = gc.tagger;
     }
 
     // Update is called once per frame
     void Update()
     {
+
         if (isTagger)
         {
             foreach (var character in allCharacters)
@@ -102,14 +97,36 @@ public class TargetController : MonoBehaviour
         }
         else if (isTargeted)
         {
-            movement = KinematicFlee();
+            int numUntagged = 0;
+            foreach (var character in characters)
+            {
+                if (character.GetComponent<TargetController>().isTagger || character.GetComponent<TargetController>().isTagged)
+                {
+                    continue;
+                }
+
+                numUntagged++;
+            }
+            if (numUntagged == 0)
+            {
+                target = GetClosestFrozen();
+                if (target != null)
+                {
+                    speed = unfreezeMaxSpeed;
+                    movement = KinematicSeek(target.transform.position);
+                }
+            }
+            else 
+            {
+                movement = KinematicFlee();
+            }
         }
         else 
         {
-            speed = unfreezeMaxSpeed;
             target = GetClosestFrozen();
             if (target != null) 
             {
+                speed = unfreezeMaxSpeed;
                 movement = KinematicSeek(target.transform.position);
             }
         }
@@ -152,7 +169,7 @@ public class TargetController : MonoBehaviour
             {
                 if (character.GetComponent<TargetController>().isTagged) 
                 {
-                    if (GetDistance(character) < tagRadius) 
+                    if (GetDistance(character) < tagRadius && GetDistance(gc.tagger) > tagRadius) 
                     {
                         character.GetComponent<TargetController>().SetTagged(false);
                     }
@@ -340,6 +357,7 @@ public class TargetController : MonoBehaviour
         if (closest == null)
         {
             Debug.Log("Game Over!");
+            GameController.Restart();
         }
 
         return closest;
@@ -413,6 +431,7 @@ public class TargetController : MonoBehaviour
         if (true)
         {
             GetComponent<MeshRenderer>().material = taggerMaterial;
+            gc.tagger = this.gameObject;
         }
     }
     
@@ -463,7 +482,11 @@ public class TargetController : MonoBehaviour
                 {
                     GameController.changeTarget = false;
 
-                    target.GetComponent<TargetController>().isTargeted = false;
+                    if (target != null) 
+                    {
+                        target.GetComponent<TargetController>().isTargeted = false;
+                    }
+                    
                     target = obj;
                     target.GetComponent<TargetController>().isTargeted = true;
 
