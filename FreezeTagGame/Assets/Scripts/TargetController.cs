@@ -32,6 +32,8 @@ public class TargetController : MonoBehaviour
     private float tagRadius;
     private float changeTargetRadius;
 
+    private Vector3 center = new Vector3(0, 0.5f, 0);
+
     // Start is called before the first frame update
     void Start()
     {
@@ -64,12 +66,23 @@ public class TargetController : MonoBehaviour
         
         meshRenderer = GetComponent<MeshRenderer>();
 
-        target = gc.tagger;
+        target = GameController.tagger;
     }
 
     // Update is called once per frame
     void Update()
     {
+        if (isTagger) 
+        {
+            if (GetDistance(center) < 0.2f)
+            {
+                if (GetDistance(GetClosest()) > 5f)
+                {
+                    GameController.Restart();
+                }
+            }
+        }
+
 
         if (isTagger)
         {
@@ -169,7 +182,7 @@ public class TargetController : MonoBehaviour
             {
                 if (character.GetComponent<TargetController>().isTagged) 
                 {
-                    if (GetDistance(character) < tagRadius && GetDistance(gc.tagger) > tagRadius) 
+                    if (GetDistance(character) < tagRadius && GetDistance(GameController.tagger) > tagRadius) 
                     {
                         character.GetComponent<TargetController>().SetTagged(false);
                     }
@@ -234,6 +247,11 @@ public class TargetController : MonoBehaviour
 
     public Vector3 KinematicPursue()
     {
+        if (target == null)
+        {
+            return Vector3.zero;
+        }
+
         speed = taggerMaxSpeed;
 
         float distance = GetDistance(target);
@@ -283,9 +301,34 @@ public class TargetController : MonoBehaviour
 
         return distance;
     }
+    
+    private float GetDistance(Vector3 target) 
+    {
+        float distance;
+
+        float length1 = Mathf.Abs(transform.position.x - target.x);
+        float height1 = Mathf.Abs(transform.position.z - target.z);
+
+        float length2 = Mathf.Abs(arenaLength*2 - length1);
+        float height2 = Mathf.Abs(arenaLength*2 - height1);
+
+        Vector2 distance1 = new Vector2(length1, height1);
+        Vector2 distance2 = new Vector2(length2, height1);
+        Vector2 distance3 = new Vector2(length1, height2);
+        Vector2 distance4 = new Vector2(length2, height2);
+
+        distance = Mathf.Min(distance1.magnitude, distance2.magnitude, distance3.magnitude, distance4.magnitude);
+
+        return distance;
+    }
 
     private Vector3 GetDirection(GameObject target)
     {
+        if (target == null) 
+        {
+            return Vector3.zero;
+        }
+
         float distance;
 
         float length1 = (target.transform.position.x - transform.position.x);
@@ -428,10 +471,10 @@ public class TargetController : MonoBehaviour
     {
        isTagger = value;
 
-        if (true)
+        if (value)
         {
             GetComponent<MeshRenderer>().material = taggerMaterial;
-            gc.tagger = this.gameObject;
+            GameController.tagger = this.gameObject;
         }
     }
     
@@ -488,9 +531,12 @@ public class TargetController : MonoBehaviour
                     }
                     
                     target = obj;
-                    target.GetComponent<TargetController>().isTargeted = true;
 
-                    Debug.Log("Log is now "+ target.name);
+                    if (target.GetComponent<TargetController>() != null) 
+                    {
+                        target.GetComponent<TargetController>().isTargeted = true;
+                    }
+                                      
                 }
                 else
                 {

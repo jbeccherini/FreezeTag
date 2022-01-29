@@ -13,16 +13,18 @@ public class GameController : MonoBehaviour
     public float tagRadius = 0.75f;
     public float changeTargetRadius = 1.5f;
 
-
-
     public static bool changeTarget = true;
 
-    public GameObject tagger;
+    public static GameObject tagger;
+
+    public static GameObject center;
 
     // Start is called before the first frame update
     void Start()
     {
         allCharacters = GameObject.FindGameObjectsWithTag("Character");
+
+        center = GameObject.FindGameObjectWithTag("center");
 
         Restart();
 
@@ -34,9 +36,18 @@ public class GameController : MonoBehaviour
         foreach (var character in allCharacters)
         {
             character.GetComponent<TargetController>().SetTagged(false);
+            character.GetComponent<TargetController>().SetTagger(false);
         }
-        allCharacters[Random.Range(0, allCharacters.Length)].GetComponent<TargetController>().SetTagger(true);
+        tagger = allCharacters[Random.Range(0, allCharacters.Length)];
 
+        tagger.GetComponent<TargetController>().SetTagger(true);
+        foreach (var character in allCharacters)
+        {
+            if (!character.GetComponent<TargetController>().GetIsTagger()) 
+            {
+                character.GetComponent<TargetController>().SetTarget(tagger);
+            }
+        }
     }
 
     IEnumerator ChangeTargetTimer()
